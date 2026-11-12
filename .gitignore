@@ -1,0 +1,11 @@
+# Local secrets
+apitoken_github
+apiaiminsetf26
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
