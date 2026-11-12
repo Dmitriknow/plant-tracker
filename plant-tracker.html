@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🌿 Мои растения</title>
+
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%232d5a3d'/><text x='50' y='68' font-size='60' text-anchor='middle'>🌿</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%232d5a3d'/><text x='90' y='122' font-size='110' text-anchor='middle'>🌿</text></svg>">
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%D0%9C%D0%BE%D0%B8%20%D1%80%D0%B0%D1%81%D1%82%D0%B5%D0%BD%D0%B8%D1%8F%22%2C%22short_name%22%3A%22%D0%A0%D0%B0%D1%81%D1%82%D0%B5%D0%BD%D0%B8%D1%8F%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%232d5a3d%22%2C%22theme_color%22%3A%22%232d5a3d%22%7D">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7f5; color: #222; }
+  header { background: #2d5a3d; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  .plants-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 26px; height: 22px; margin-left: 6px; padding: 0 9px;
+    font-size: 12px; font-weight: 600; line-height: 1; color: #e8f0ea;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 11px; vertical-align: middle; transition: background .2s;
+  }
+  .plants-count:empty { display: none; }
+  nav { display: flex; gap: 8px; }
+  nav button { background: transparent; color: white; border: 1px solid rgba(255,255,255,.3); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  nav button.active { background: rgba(255,255,255,.15); border-color: white; }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .header-actions button { background: rgba(255,255,255,.15); color: white; border: none; padding: 7px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  .header-actions button:hover { background: rgba(255,255,255,.25); }
+  .sync-status { font-size: 12px; opacity: .9; }
+
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .toolbar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+  .toolbar input, .toolbar select { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; }
+  .toolbar input { flex: 1; min-width: 200px; }
+  .primary { background: #2d5a3d; color: white; border: none; padding: 9px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+  .primary:hover { background: #24482f; }
+  .primary:disabled { background: #999; cursor: not-allowed; }
+
+  .toggle-btn {
+    background: #fff; border: 1px solid #ccc; color: #555;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; font-family: inherit;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .toggle-btn:hover { background: #f5f5f5; }
+  .toggle-btn.active { background: #2d5a3d; border-color: #2d5a3d; color: #fff; }
+
+  .plants-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .plant-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; flex-direction: column; overflow: hidden; transition: box-shadow .2s, background .2s; }
+  .plant-card.water-warn { box-shadow: 0 0 0 3px #f0c36d, 0 2px 8px rgba(240,195,77,.25); background: #fffbf0; border-left: 5px solid #f0c36d; }
+    .plant-card.water-danger { box-shadow: 0 0 0 3px #e57373, 0 2px 12px rgba(229,115,115,.35); background: #fff3f3; border-left: 5px solid #e57373; }
+    .plant-card.water-warn .plant-header h3 { color: #8a6d1a; }
+    .plant-card.water-danger .plant-header h3 { color: #b71c1c; }
+
+  .plant-photo { width: 100%; height: 200px; background: #f0f3f1; cursor: pointer; overflow: hidden; }
+  .plant-photo img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s; }
+  .plant-photo:hover img { transform: scale(1.04); }
+  .plant-photo-placeholder { width: 100%; height: 200px; background: linear-gradient(135deg, #e8f0ea 0%, #d5e3d8 100%); display: flex; align-items: center; justify-content: center; color: #8ba892; font-size: 42px; cursor: pointer; }
+  .plant-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+  .plant-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .plant-header h3 { margin: 0; font-size: 17px; }
+  .cultivar { font-size: 13px; color: #777; font-style: italic; }
+  .plant-menu { display: flex; gap: 2px; }
+  .plant-menu button { background: transparent; border: none; cursor: pointer; font-size: 15px; padding: 4px 6px; border-radius: 4px; color: #666; line-height: 1; }
+  .plant-menu button:hover { background: #f0f0f0; }
+  .plant-info { display: flex; flex-direction: column; gap: 5px; font-size: 13px; color: #555; }
+  .plant-info .row { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .plant-info .label { color: #888; display: inline-flex; align-items: center; gap: 6px; }
+  .icon { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+  .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 10px; margin-top: auto; border-top: 1px solid #eee; }
+  .quick-actions button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    background: #f0f5f1; border: 1px solid #d5e3d8; color: #2d5a3d;
+    padding: 7px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .quick-actions button:hover { background: #e0ede3; }
+  .quick-actions button:disabled { opacity: .5; cursor: not-allowed; }
+  .quick-actions button.confirming { background: #fff3cd; border-color: #ffc107; color: #856404; font-weight: 600; }
+  .quick-actions button.confirming:hover { background: #ffe8a1; }
+
+  .events-table { width: 100%; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-collapse: collapse; }
+  .events-table th, .events-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+  .events-table th { background: #f5f7f5; font-weight: 600; color: #555; font-size: 13px; }
+  .events-table tr:last-child td { border-bottom: none; }
+  .events-table tr:hover td { background: #fafcfa; }
+  .del-btn { background: none; border: none; cursor: pointer; color: #c33; font-size: 14px; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+  .modal[hidden] { display: none; }
+  .modal-content { background: white; border-radius: 12px; padding: 24px; max-width: 560px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.2); }
+  .modal-content h2 { margin: 0 0 16px; font-size: 18px; flex-shrink: 0; }
+  .modal-content form { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .form-body { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; flex: 1; }
+  .modal-content label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #555; }
+  .modal-content input, .modal-content textarea, .modal-content select { padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; font-family: inherit; }
+  .modal-content input:focus, .modal-content textarea:focus, .modal-content select:focus { outline: none; border-color: #2d5a3d; box-shadow: 0 0 0 3px rgba(45,90,61,.12); }
+
+  .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; margin-top: 8px; border-top: 1px solid #eee; flex-shrink: 0; }
+  .modal-buttons button {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 110px; padding: 10px 20px;
+    border-radius: 6px; font-size: 14px; font-weight: 500; font-family: inherit;
+    cursor: pointer; border: 1px solid #ccc; background: #fff; color: #333;
+    transition: background .15s, border-color .15s;
+  }
+  .modal-buttons button:hover { background: #f5f5f5; border-color: #999; }
+  .modal-buttons button:active { background: #ececec; }
+  .modal-buttons .primary-btn { background: #2d5a3d; color: #fff; border-color: #2d5a3d; }
+  .modal-buttons .primary-btn:hover { background: #24482f; border-color: #24482f; }
+  .modal-buttons .primary-btn:active { background: #1d3a26; }
+  .modal-buttons button:disabled { background: #ccc; border-color: #ccc; cursor: not-allowed; color: #fff; }
+
+  .info-list { display: flex; flex-direction: column; gap: 8px; max-height: 65vh; overflow-y: auto; padding-right: 4px; }
+  .info-photo { width: 100%; border-radius: 8px; margin-bottom: 12px; display: block; }
+  .info-row { display: flex; gap: 12px; padding: 10px 12px; background: #f5f7f5; border-radius: 6px; font-size: 14px; align-items: baseline; }
+  .info-row .info-label { color: #888; min-width: 150px; flex-shrink: 0; font-size: 13px; }
+  .info-row .info-value { color: #222; word-break: break-word; flex: 1; }
+  .info-row .info-value.empty { color: #bbb; font-style: italic; }
+
+  .history-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+  .history-item { padding: 10px 12px; background: #f5f7f5; border-radius: 6px; font-size: 13px; }
+  .history-item .date { color: #888; font-size: 12px; margin-bottom: 2px; }
+  .history-item .type { font-weight: 600; color: #2d5a3d; }
+
+  .photo-field { display: flex; flex-direction: column; gap: 8px; }
+  .photo-field input[type="file"] { padding: 6px; font-size: 13px; }
+  .photo-preview-block { position: relative; display: inline-block; max-width: 100%; }
+  .photo-preview-img { max-width: 100%; max-height: 220px; border-radius: 8px; display: block; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .photo-hint { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .photo-remove {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,.6); color: #fff; border: none;
+    padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;
+    font-family: inherit;
+  }
+  .photo-remove:hover { background: rgba(200,30,30,.85); }
+
+  .empty { color: #888; padding: 40px 20px; text-align: center; font-size: 14px; grid-column: 1/-1; }
+  .hint { font-size: 12px; color: #888; line-height: 1.6; }
+  .hint code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+  .status-msg { font-size: 13px; padding: 8px 12px; border-radius: 6px; margin-top: 8px; }
+  .status-msg.ok { background: #e6f4ea; color: #1e7a34; }
+  .status-msg.err { background: #fce8e6; color: #c5221f; }
+  .status-msg.info { background: #e8f0fe; color: #1a56b8; }
+
+  .setup-banner { background: #fff7e6; border: 1px solid #f0c36d; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+  .setup-banner button { margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 Мои растения <span class="plants-count" id="plantsCount"></span></h1>
+  <nav>
+    <button data-tab="plants" class="active">Растения</button>
+    <button data-tab="care">Уход</button>
+  </nav>
+  <div class="header-actions">
+    <span class="sync-status" id="syncStatus"></span>
+    <button id="syncBtn" title="Перечитать из Supabase">↻ Обновить</button>
+    <button id="settingsBtn" title="Настройки">⚙</button>
+  </div>
+</header>
+
+<main>
+  <div id="setupBanner" class="setup-banner" hidden>
+    <strong>Приложение не подключено к Supabase.</strong><br>
+    Нажмите ⚙ в правом верхнем углу и введите <code>Project URL</code> и <code>anon key</code> из вашего проекта Supabase.
+    <button class="primary" onclick="document.getElementById('settingsBtn').click()">Открыть настройки</button>
+  </div>
+
+  <section id="plantsSection">
+    <div class="toolbar">
+      <input id="search" placeholder="Поиск по названию, сорту...">
+            <div class="water-filter-group" style="display:flex;gap:4px">
+              <button class="toggle-btn active" data-water="all">🌿 Все</button>
+              <button class="toggle-btn" data-water="yellow">🟡 Жёлтые</button>
+              <button class="toggle-btn" data-water="red">🔴 Красные</button>
+            </div>
+      <button class="primary" id="addPlantBtn">+ Добавить растение</button>
+    </div>
+    <div class="plants-grid" id="plantsGrid"></div>
+  </section>
+
+  <section id="careSection" hidden>
+    <div class="toolbar">
+      <select id="filterPlant"><option value="">Все растения</option></select>
+      <select id="filterType"><option value="">Все типы</option></select>
+      <button class="primary" id="addEventBtn" style="margin-left:auto">+ Добавить событие</button>
+    </div>
+    <table class="events-table">
+      <thead><tr><th>Дата</th><th>Растение</th><th>Тип</th><th>Комментарий</th><th></th></tr></thead>
+      <tbody id="eventsBody"></tbody>
+    </table>
+  </section>
+</main>
+
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 2.5C8 8 5 12 5 15.5a7 7 0 0 0 14 0C19 12 16 8 12 2.5z"/></symbol>
+  <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 4C10 4 4 9 4 17c0 1 0 2 .5 3M20 4c0 8-5 13-13 13"/></symbol>
+  <symbol id="i-pot" viewBox="0 0 24 24"><path d="M5 9h14l-1.5 9a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 9zM9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+  <symbol id="i-bug" viewBox="0 0 24 24"><circle cx="12" cy="13" r="6"/><path d="M9 3l1.5 3M15 3l-1.5 3M3 9l3 1M21 9l-3 1M3 17l3-1M21 17l-3-1M9 22l1-3M15 22l-1-3"/></symbol>
+</svg>
+
+<!-- Растение -->
+<div class="modal" id="plantModal" hidden>
+  <div class="modal-content">
+    <h2 id="plantModalTitle">Новое растение</h2>
+    <form id="plantForm">
+      <div class="form-body">
+        <input type="hidden" name="id">
+        <div class="photo-field">
+          <div class="photo-hint">Фотография</div>
+          <input type="file" name="photo" accept="image/*" id="plantPhotoInput">
+          <div id="photoPreviewWrap" hidden>
+            <div id="photoPreviewBlock" class="photo-preview-block"></div>
+          </div>
+        </div>
+        <label>Название *<input name="name" required></label>
+        <label>Сорт<input name="cultivar"></label>
+        <label>Группа полива
+          <select name="plant_class">
+            <option value="">— не указана —</option>
+            <option value="влаголюбивые">Влаголюбивые (частый полив)</option>
+            <option value="засухоустойчивые">Засухоустойчивые (редкий полив)</option>
+          </select>
+        </label>
+        <label>Когда появилось<input type="date" name="acquired"></label>
+        <label>Влажность (какую любит)<input name="humidity" placeholder="напр. высокая, 60%"></label>
+        <label>Свет (какой любит)<input name="light" placeholder="напр. яркий рассеянный"></label>
+        <label>Полив (какой любит)<input name="watering" placeholder="напр. когда верхний слой сухой"></label>
+        <label>Грунт<input name="soil"></label>
+        <label>Горшок<input name="pot" placeholder="напр. 18 см, керамика"></label>
+        <label>Удобрения<input name="fertilizer" placeholder="напр. NPK 3-1-2 раз в месяц"></label>
+        <label>Комментарий<textarea name="plans" rows="2"></textarea></label>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" data-close>Отмена</button>
+        <button type="submit" class="primary-btn" id="plantSubmitBtn">Создать</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Информация о растении -->
+<div class="modal" id="infoModal" hidden>
+  <div class="modal-content">
+    <h2 id="infoTitle">Информация о растении</h2>
+    <div class="info-list" id="infoList"></div>
+    <div class="modal-buttons">
+      <button type="button" data-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<!-- Событие -->
+<div class="modal" id="eventModal" hidden>
+  <div class="modal-content">
+    <h2 id="eventModalTitle">Новое событие</h2>
+    <form id="eventForm">
+      <div class="form-body">
+        <input type="hidden" name="id">
+        <label>Растение *<select name="plantId" required></select></label>
+        <label>Дата *<input type="date" name="date" required></label>
+        <label>Тип события *<select name="type" required></select></label>
+        <label>Комментарий<textarea name="comment" rows="3"></textarea></label>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" data-close>Отмена</button>
+        <button type="submit" class="primary-btn" id="eventSubmitBtn">Создать</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- История -->
+<div class="modal" id="historyModal" hidden>
+  <div class="modal-content">
+    <h2 id="historyTitle">История ухода</h2>
+    <div class="history-list" id="historyList"></div>
+    <div class="modal-buttons"><button type="button" data-close>Закрыть</button></div>
+  </div>
+</div>
+
+<!-- Настройки Supabase -->
+<div class="modal" id="settingsModal" hidden>
+  <div class="modal-content">
+    <h2>Настройки подключения к Supabase</h2>
+    <form id="settingsForm">
+      <div class="form-body">
+        <label>Project URL
+          <input name="url" placeholder="https://xxxxx.supabase.co" style="font-size:12px">
+        </label>
+        <label>anon public key
+          <input name="key" placeholder="eyJhbGciOiJIUzI1NiIs..." style="font-size:12px">
+        </label>
+        <div class="hint">
+          <strong>Где взять:</strong><br>
+          1. Откройте свой проект на <code>supabase.com</code>.<br>
+          2. <code>Project Settings (⚙) → API</code>.<br>
+          3. Скопируйте <strong>Project URL</strong> и <strong>anon public</strong> key.
+        </div>
+        <button type="button" id="testConnBtn" style="align-self:flex-start; padding:6px 12px; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer;">Проверить подключение</button>
+        <div id="testResult"></div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" data-close>Отмена</button>
+        <button type="submit" class="primary-btn">Сохранить</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   КОНСТАНТЫ И СОСТОЯНИЕ
+   ========================================================= */
+const CACHE_KEY = 'plantTracker_cache_v2';
+const CFG_KEY   = 'plantTracker_supabase_cfg';
+const STORAGE_BUCKET = 'plant-photos';
+const EVENT_TYPES = ['Полив','Удобрение','Пересадка','Обработка от вредителей','Опрыскивание','Обрезка','Другое'];
+
+// Пороги полива (в днях) по группе растения
+const WATER_THRESHOLDS = {
+  'влаголюбивые':     { yellow: 5,  red: 8  },
+  'засухоустойчивые': { yellow: 8,  red: 11 }
+};
+
+const ICONS = {
+  water: '<svg class="icon"><use href="#i-water"/></svg>',
+  leaf:  '<svg class="icon"><use href="#i-leaf"/></svg>',
+  pot:   '<svg class="icon"><use href="#i-pot"/></svg>',
+  bug:   '<svg class="icon"><use href="#i-bug"/></svg>'
+};
+
+const QUICK_CONFIRM_ON_TOUCH = true;
+const QUICK_CONFIRM_MS = 1500;
+
+let cfg = { url: '', key: '' };
+let sb = null;
+let state = { plants: [], events: [] };
+
+let photoState = { current: null, newFile: null, remove: false, previewUrl: null };
+let quickPending = null;
+let waterFilter = 'all'; // 'all' | 'yellow' | 'red'
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const todayISO = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const nn = v => (v === '' || v == null) ? null : v;
+
+function isTouchDevice() {
+  return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+}
+
+/* =========================================================
+   ХРАНИЛИЩЕ
+   ========================================================= */
+function loadCfg() {
+  try { cfg = JSON.parse(localStorage.getItem(CFG_KEY)) || { url: '', key: '' }; } catch {}
+  if (cfg.url && cfg.key) {
+    sb = window.supabase.createClient(cfg.url, cfg.key);
+  }
+}
+function saveCfg() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function loadCache() {
+  try { const raw = localStorage.getItem(CACHE_KEY); if (raw) state = JSON.parse(raw); } catch {}
+}
+function saveCache() { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); }
+function isConfigured() { return !!(sb && cfg.url && cfg.key); }
+
+/* =========================================================
+   СИНХРОНИЗАЦИЯ
+   ========================================================= */
+function setSyncStatus(text, cls) {
+  const el = $('#syncStatus');
+  el.textContent = text || '';
+  el.style.color = cls === 'err' ? '#ffd0cc' : cls === 'ok' ? '#c8f0cf' : '';
+}
+function normalizePlantRow(p) {
+  return {
+    id: p.id,
+    name: p.name || '',
+    cultivar: p.cultivar || '',
+    plant_class: p.plant_class || '',
+    acquired: p.acquired || '',
+    humidity: p.humidity || '',
+    light: p.light || '',
+    watering: p.watering || '',
+    soil: p.soil || '',
+    pot: p.pot || '',
+    fertilizer: p.fertilizer || '',
+    plans: p.plans || '',
+    photo_url: p.photo_url || ''
+  };
+}
+function normalizeEventRow(e) {
+  return {
+    id: e.id,
+    plantId: e.plant_id,
+    date: e.date || '',
+    type: e.type || '',
+    comment: e.comment || ''
+  };
+}
+
+async function loadFromSupabase() {
+  if (!isConfigured()) return false;
+  setSyncStatus('Загрузка...');
+  try {
+    const [{ data: plants, error: e1 }, { data: events, error: e2 }] = await Promise.all([
+      sb.from('plants').select('*').order('name', { ascending: true }),
+      sb.from('care_events').select('*').order('date', { ascending: false })
+    ]);
+    if (e1) throw e1;
+    if (e2) throw e2;
+    state.plants = (plants || []).map(normalizePlantRow);
+    state.events = (events || []).map(normalizeEventRow);
+    saveCache();
+    render();
+    setSyncStatus('Обновлено ' + new Date().toLocaleTimeString('ru-RU').slice(0,5), 'ok');
+    return true;
+  } catch (e) {
+    console.error('[loadFromSupabase]', e);
+    setSyncStatus('Не в сети', 'err');
+    return false;
+  }
+}
+
+/* =========================================================
+   ФОТО
+   ========================================================= */
+async function resizeImage(file, maxSize = 1400, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxSize || height > maxSize) {
+        if (width >= height) { height = Math.round(height * maxSize / width); width = maxSize; }
+        else { width = Math.round(width * maxSize / height); height = maxSize; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      canvas.toBlob(blob => {
+        if (!blob) return reject(new Error('Не удалось обработать изображение'));
+        resolve(blob);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не удалось прочитать изображение')); };
+    img.src = url;
+  });
+}
+
+async function uploadPhoto(file) {
+  if (!isConfigured()) throw new Error('Supabase не настроен');
+  const blob = await resizeImage(file);
+  const rand = (crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '-' + Math.random().toString(36).slice(2));
+  const path = `${rand}.jpg`;
+  const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, blob, {
+    cacheControl: '31536000', upsert: false, contentType: 'image/jpeg'
+  });
+  if (error) throw error;
+  const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function deletePhotoByUrl(url) {
+  if (!url || !isConfigured()) return;
+  const marker = `/object/public/${STORAGE_BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return;
+  const path = url.slice(idx + marker.length);
+  try { await sb.storage.from(STORAGE_BUCKET).remove([path]); } catch (e) { console.warn('deletePhoto', e); }
+}
+
+async function duplicatePhotoByUrl(url) {
+  if (!url || !isConfigured()) return null;
+  const marker = `/object/public/${STORAGE_BUCKET}/`;
+  const idx = url.indexOf(marker);
+  if (idx === -1) return url;
+  const path = url.slice(idx + marker.length);
+
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('Не удалось скачать исходное фото');
+  const blob = await resp.blob();
+
+  const rand = (crypto.randomUUID && crypto.randomUUID()) || (Date.now() + '-' + Math.random().toString(36).slice(2));
+  const newPath = `${rand}.jpg`;
+  const { error } = await sb.storage.from(STORAGE_BUCKET).upload(newPath, blob, {
+    cacheControl: '31536000', upsert: false, contentType: 'image/jpeg'
+  });
+  if (error) throw error;
+  const { data } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(newPath);
+  return data.publicUrl;
+}
+
+/* =========================================================
+   ОПЕРАЦИИ НАД РАСТЕНИЯМИ
+   ========================================================= */
+function buildPlantPayload(data, photoUrl) {
+  return {
+    name: data.name,
+    cultivar: nn(data.cultivar),
+    plant_class: nn(data.plant_class),
+    acquired: nn(data.acquired),
+    humidity: nn(data.humidity),
+    light: nn(data.light),
+    watering: nn(data.watering),
+    soil: nn(data.soil),
+    pot: nn(data.pot),
+    fertilizer: nn(data.fertilizer),
+    plans: nn(data.plans),
+    photo_url: photoUrl || null
+  };
+}
+async function createPlant(data, photoUrl) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const { data: row, error } = await sb.from('plants').insert(buildPlantPayload(data, photoUrl)).select().single();
+  if (error) { alert('Ошибка сохранения: ' + error.message); console.error(error); return false; }
+  state.plants.push(normalizePlantRow(row));
+  state.plants.sort((a,b) => a.name.localeCompare(b.name));
+  saveCache(); render();
+  return true;
+}
+async function updatePlant(id, data, photoUrl) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const { data: row, error } = await sb.from('plants').update(buildPlantPayload(data, photoUrl)).eq('id', id).select().single();
+  if (error) { alert('Ошибка сохранения: ' + error.message); console.error(error); return false; }
+  const idx = state.plants.findIndex(p => p.id === id);
+  if (idx >= 0) state.plants[idx] = normalizePlantRow(row);
+  state.plants.sort((a,b) => a.name.localeCompare(b.name));
+  saveCache(); render();
+  return true;
+}
+async function removePlant(id) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const plant = state.plants.find(p => p.id === id);
+  const { error } = await sb.from('plants').delete().eq('id', id);
+  if (error) { alert('Ошибка удаления: ' + error.message); console.error(error); return false; }
+  if (plant && plant.photo_url) {
+    const stillUsed = state.plants.some(p => p.id !== id && p.photo_url === plant.photo_url);
+    if (!stillUsed) deletePhotoByUrl(plant.photo_url);
+  }
+  state.plants = state.plants.filter(p => p.id !== id);
+  state.events = state.events.filter(e => e.plantId !== id);
+  saveCache(); render();
+  return true;
+}
+
+/* =========================================================
+   ОПЕРАЦИИ НАД СОБЫТИЯМИ
+   ========================================================= */
+async function createEvent(data) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const { data: row, error } = await sb.from('care_events').insert({
+    plant_id: Number(data.plantId), date: data.date, type: data.type, comment: nn(data.comment)
+  }).select().single();
+  if (error) { alert('Ошибка сохранения: ' + error.message); console.error(error); return false; }
+  state.events.push(normalizeEventRow(row));
+  state.events.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  saveCache(); render();
+  return true;
+}
+async function updateEvent(id, data) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const { data: row, error } = await sb.from('care_events').update({
+    plant_id: Number(data.plantId), date: data.date, type: data.type, comment: nn(data.comment)
+  }).eq('id', id).select().single();
+  if (error) { alert('Ошибка сохранения: ' + error.message); console.error(error); return false; }
+  const idx = state.events.findIndex(e => e.id === id);
+  if (idx >= 0) state.events[idx] = normalizeEventRow(row);
+  state.events.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  saveCache(); render();
+  return true;
+}
+async function removeEvent(id) {
+  if (!isConfigured()) { alert('Supabase не настроен. Откройте ⚙.'); return false; }
+  const { error } = await sb.from('care_events').delete().eq('id', id);
+  if (error) { alert('Ошибка удаления: ' + error.message); console.error(error); return false; }
+  state.events = state.events.filter(e => e.id !== id);
+  saveCache(); render();
+  return true;
+}
+
+/* =========================================================
+   ОТОБРАЖЕНИЕ
+   ========================================================= */
+function lastEventDate(plantId, types) {
+  const m = state.events.filter(e => e.plantId === plantId && types.includes(e.type));
+  return m.length ? m.map(e => e.date).filter(Boolean).sort().pop() : '';
+}
+function daysAgo(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00'); const now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((now - d) / 86400000);
+}
+function formatDays(dateStr) {
+  if (!dateStr) return '—';
+  const d = daysAgo(dateStr);
+  if (d === 0) return 'сегодня';
+  if (d === 1) return 'вчера';
+  if (d < 0) return 'в будущем';
+  return d + ' дн. назад';
+}
+
+// Определение статуса полива
+function waterStatus(p) {
+  const lw = lastEventDate(p.id, ['Полив']);
+  if (!lw) return { level: 'none', days: null };
+  const d = daysAgo(lw);
+  const t = WATER_THRESHOLDS[p.plant_class];
+  if (!t || d == null) return { level: 'none', days: d };
+  if (d >= t.red)    return { level: 'red',    days: d };
+  if (d >= t.yellow) return { level: 'yellow', days: d };
+  return { level: 'ok', days: d };
+}
+function needsWater(p) {
+  const s = waterStatus(p);
+  return s.level === 'yellow' || s.level === 'red';
+}
+
+function render() { renderPlants(); renderEvents(); renderFilters(); updateBanner(); updatePlantsCount(); }
+function updateBanner() { $('#setupBanner').hidden = isConfigured(); }
+function updatePlantsCount() {
+  const el = $('#plantsCount');
+  const n = state.plants.length;
+  el.textContent = n > 0 ? String(n) : '';
+  el.title = n > 0 ? `Всего растений: ${n}` : '';
+}
+
+function renderPlants() {
+  const q = ($('#search').value || '').toLowerCase().trim();
+  let list = state.plants.filter(p =>
+    !q || [p.name, p.cultivar].some(v => String(v||'').toLowerCase().includes(q))
+  );
+  if (waterFilter === 'yellow') list = list.filter(p => waterStatus(p).level === 'yellow');
+  if (waterFilter === 'red') list = list.filter(p => waterStatus(p).level === 'red');
+
+  const grid = $('#plantsGrid');
+  if (!list.length) {
+    let msg = 'Пока нет растений. Добавьте первое.';
+        if (state.plants.length && waterFilter !== 'all') msg = 'Нет растений с таким статусом 🌿';
+    else if (state.plants.length) msg = 'Ничего не найдено';
+    grid.innerHTML = `<div class="empty">${msg}</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(plantCardHTML).join('');
+}
+
+function plantCardHTML(p) {
+  const lw = lastEventDate(p.id, ['Полив']);
+  const lf = lastEventDate(p.id, ['Удобрение']);
+  const lr = lastEventDate(p.id, ['Пересадка']);
+  const lp = lastEventDate(p.id, ['Обработка от вредителей']);
+
+  const ws = waterStatus(p);
+  const cardCls = ws.level === 'red'    ? 'water-danger'
+                : ws.level === 'yellow' ? 'water-warn'
+                : '';
+
+  const photoBlock = p.photo_url
+    ? `<div class="plant-photo" data-action="info" data-id="${p.id}"><img src="${esc(p.photo_url)}" alt="" loading="lazy"></div>`
+    : `<div class="plant-photo-placeholder" data-action="info" data-id="${p.id}">🌿</div>`;
+  return `
+    <div class="plant-card ${cardCls}">
+      ${photoBlock}
+      <div class="plant-body">
+        <div class="plant-header">
+          <div>
+            <h3>${esc(p.name)}</h3>
+            ${p.cultivar ? `<div class="cultivar">${esc(p.cultivar)}</div>` : ''}
+            ${p.plant_class ? `<div class="cultivar">${esc(p.plant_class)}</div>` : ''}
+          </div>
+          <div class="plant-menu">
+            <button title="Вся информация" data-action="info" data-id="${p.id}">ⓘ</button>
+            <button title="История ухода" data-action="history" data-id="${p.id}">📜</button>
+            <button title="Редактировать" data-action="edit" data-id="${p.id}">✎</button>
+            <button title="Копировать" data-action="copy" data-id="${p.id}">⧉</button>
+            <button title="Удалить" data-action="delete" data-id="${p.id}">🗑</button>
+          </div>
+        </div>
+        <div class="plant-info">
+          <div class="row"><span class="label">${ICONS.water} Полив:</span><span>${formatDays(lw)}</span></div>
+          <div class="row"><span class="label">${ICONS.leaf} Удобрение:</span><span>${formatDays(lf)}</span></div>
+          <div class="row"><span class="label">${ICONS.pot} Пересадка:</span><span>${formatDays(lr)}</span></div>
+          <div class="row"><span class="label">${ICONS.bug} Обработка:</span><span>${formatDays(lp)}</span></div>
+          ${p.plans ? `<div class="row"><span class="label">Комментарий:</span><span>${esc(p.plans)}</span></div>` : ''}
+        </div>
+        <div class="quick-actions">
+          <button data-action="quick" data-type="Полив" data-id="${p.id}">${ICONS.water} Полил</button>
+          <button data-action="quick" data-type="Удобрение" data-id="${p.id}">${ICONS.leaf} Удобрил</button>
+          <button data-action="quick" data-type="Пересадка" data-id="${p.id}">${ICONS.pot} Пересадил</button>
+          <button data-action="quick" data-type="Обработка от вредителей" data-id="${p.id}">${ICONS.bug} Обработал</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderEvents() {
+  const fp = $('#filterPlant').value;
+  const ft = $('#filterType').value;
+  let list = [...state.events];
+  if (fp) list = list.filter(e => String(e.plantId) === String(fp));
+  if (ft) list = list.filter(e => e.type === ft);
+  list.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  const tbody = $('#eventsBody');
+  if (!list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Нет событий</td></tr>'; return; }
+  tbody.innerHTML = list.map(e => {
+    const p = state.plants.find(x => x.id === e.plantId);
+    return `<tr>
+      <td>${esc(e.date)}</td>
+      <td>${p ? esc(p.name) : '—'}</td>
+      <td>${esc(e.type)}</td>
+      <td>${esc(e.comment)}</td>
+      <td><button class="del-btn" data-action="deleteEvent" data-id="${e.id}" title="Удалить">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+function renderFilters() {
+  const fp = $('#filterPlant'); const cur = fp.value;
+  fp.innerHTML = '<option value="">Все растения</option>' + state.plants.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  fp.value = cur;
+  const ft = $('#filterType'); const curT = ft.value;
+  ft.innerHTML = '<option value="">Все типы</option>' + EVENT_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+  ft.value = curT;
+}
+
+/* =========================================================
+   ДВОЙНОЕ НАЖАТИЕ ДЛЯ БЫСТРЫХ ДЕЙСТВИЙ
+   ========================================================= */
+function resetQuickPending() {
+  if (!quickPending) return;
+  clearTimeout(quickPending.timer);
+  const b = quickPending.btn;
+  b.classList.remove('confirming');
+  if (b.dataset.originalHtml) b.innerHTML = b.dataset.originalHtml;
+  quickPending = null;
+}
+function handleQuickTap(btn) {
+  if (quickPending && quickPending.btn === btn) {
+    clearTimeout(quickPending.timer);
+    const orig = btn.dataset.originalHtml;
+    quickPending = null;
+    btn.classList.remove('confirming');
+    if (orig) btn.innerHTML = orig;
+    return true;
+  }
+  if (quickPending) resetQuickPending();
+  if (!btn.dataset.originalHtml) {
+    btn.dataset.originalHtml = btn.innerHTML;
+  }
+  btn.classList.add('confirming');
+  btn.innerHTML = 'Ещё раз';
+  const timer = setTimeout(() => {
+    btn.classList.remove('confirming');
+    if (btn.dataset.originalHtml) btn.innerHTML = btn.dataset.originalHtml;
+    if (quickPending && quickPending.btn === btn) quickPending = null;
+  }, QUICK_CONFIRM_MS);
+  quickPending = { btn, timer };
+  return false;
+}
+
+/* =========================================================
+   ФОТО В ФОРМЕ
+   ========================================================= */
+function resetPhotoState() {
+  if (photoState.previewUrl) URL.revokeObjectURL(photoState.previewUrl);
+  photoState = { current: null, newFile: null, remove: false, previewUrl: null };
+  $('#plantPhotoInput').value = '';
+  renderPhotoPreview();
+}
+function renderPhotoPreview() {
+  const wrap = $('#photoPreviewWrap');
+  const block = $('#photoPreviewBlock');
+  let url = null;
+  if (photoState.newFile && photoState.previewUrl) url = photoState.previewUrl;
+  else if (!photoState.remove && photoState.current) url = photoState.current;
+
+  if (!url) { wrap.hidden = true; block.innerHTML = ''; return; }
+  wrap.hidden = false;
+  const hint = photoState.newFile ? 'Новое фото:' : 'Текущее фото:';
+  block.innerHTML = `
+    <div class="photo-hint">${hint}</div>
+    <img class="photo-preview-img" src="${esc(url)}" alt="">
+    <button type="button" class="photo-remove" id="photoRemoveBtn">Удалить</button>
+  `;
+  const rm = $('#photoRemoveBtn');
+  if (rm) rm.addEventListener('click', () => {
+    if (photoState.previewUrl) URL.revokeObjectURL(photoState.previewUrl);
+    photoState.newFile = null;
+    photoState.previewUrl = null;
+    if (photoState.current) photoState.remove = true;
+    $('#plantPhotoInput').value = '';
+    renderPhotoPreview();
+  });
+}
+$('#plantPhotoInput').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { alert('Выберите файл изображения'); e.target.value = ''; return; }
+  if (photoState.previewUrl) URL.revokeObjectURL(photoState.previewUrl);
+  photoState.newFile = file;
+  photoState.remove = false;
+  photoState.previewUrl = URL.createObjectURL(file);
+  renderPhotoPreview();
+});
+
+/* =========================================================
+   МОДАЛЬНЫЕ ОКНА
+   ========================================================= */
+function openPlantModal(id, prefill) {
+  const form = $('#plantForm'); form.reset();
+  resetPhotoState();
+  const submitBtn = $('#plantSubmitBtn');
+
+  if (id) {
+    form.elements.id.value = id;
+    const p = state.plants.find(x => x.id === id); if (!p) return;
+    ['name','cultivar','plant_class','acquired','humidity','light','watering','soil','pot','fertilizer','plans']
+      .forEach(k => { if (form.elements[k]) form.elements[k].value = p[k] ?? ''; });
+    photoState.current = p.photo_url || null;
+    renderPhotoPreview();
+    $('#plantModalTitle').textContent = 'Редактировать растение';
+    submitBtn.textContent = 'Сохранить';
+  } else if (prefill) {
+    form.elements.id.value = '';
+    ['cultivar','plant_class','acquired','humidity','light','watering','soil','pot','fertilizer','plans']
+      .forEach(k => { if (form.elements[k]) form.elements[k].value = prefill[k] ?? ''; });
+    form.elements.name.value = (prefill.name || '') + ' (копия)';
+    if (prefill.photo_url) {
+      photoState.current = prefill.photo_url;
+      renderPhotoPreview();
+    }
+    $('#plantModalTitle').textContent = 'Копия растения';
+    submitBtn.textContent = 'Создать';
+  } else {
+    form.elements.id.value = '';
+    $('#plantModalTitle').textContent = 'Новое растение';
+    submitBtn.textContent = 'Создать';
+  }
+
+  $('#plantModal').hidden = false;
+  setTimeout(() => {
+    form.elements.name.focus();
+    form.elements.name.select();
+  }, 50);
+}
+
+function openInfoModal(plantId) {
+  const p = state.plants.find(x => x.id === plantId); if (!p) return;
+  const fields = [
+    ['Название', p.name],
+    ['Сорт', p.cultivar],
+    ['Группа полива', p.plant_class],
+    ['Когда появилось', p.acquired],
+    ['Влажность', p.humidity],
+    ['Свет', p.light],
+    ['Полив', p.watering],
+    ['Грунт', p.soil],
+    ['Горшок', p.pot],
+    ['Удобрения', p.fertilizer],
+    ['Комментарий', p.plans]
+  ];
+  $('#infoTitle').textContent = p.name;
+  const photoHtml = p.photo_url ? `<img class="info-photo" src="${esc(p.photo_url)}" alt="">` : '';
+  $('#infoList').innerHTML = photoHtml + fields.map(([label, value]) => {
+    const hasValue = value !== '' && value != null;
+    return `<div class="info-row">
+      <div class="info-label">${esc(label)}</div>
+      <div class="info-value${hasValue ? '' : ' empty'}">${hasValue ? esc(value) : 'не указано'}</div>
+    </div>`;
+  }).join('');
+  $('#infoModal').hidden = false;
+}
+
+function openEventModal(id, defaults) {
+  const form = $('#eventForm'); form.reset();
+  form.elements.plantId.innerHTML = state.plants.length
+    ? state.plants.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')
+    : '<option value="">— нет растений —</option>';
+  form.elements.type.innerHTML = EVENT_TYPES.map(t => `<option value="${t}">${t}</option>`).join('');
+  form.elements.id.value = id || '';
+  const submitBtn = $('#eventSubmitBtn');
+  if (id) {
+    const ev = state.events.find(x => x.id === id); if (!ev) return;
+    form.elements.plantId.value = ev.plantId;
+    form.elements.date.value = ev.date;
+    form.elements.type.value = ev.type;
+    form.elements.comment.value = ev.comment || '';
+    $('#eventModalTitle').textContent = 'Редактировать событие';
+    submitBtn.textContent = 'Сохранить';
+  } else {
+    form.elements.date.value = todayISO();
+    if (defaults) {
+      if (defaults.plantId) form.elements.plantId.value = defaults.plantId;
+      if (defaults.type) form.elements.type.value = defaults.type;
+    }
+    $('#eventModalTitle').textContent = 'Новое событие';
+    submitBtn.textContent = 'Создать';
+  }
+  $('#eventModal').hidden = false;
+}
+
+function openHistoryModal(plantId) {
+  const p = state.plants.find(x => x.id === plantId); if (!p) return;
+  const events = state.events.filter(e => e.plantId === plantId).sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  $('#historyTitle').textContent = 'История: ' + p.name;
+  $('#historyList').innerHTML = events.length
+    ? events.map(e => `<div class="history-item"><div class="date">${esc(e.date)}</div><div><span class="type">${esc(e.type)}</span>${e.comment ? ' — ' + esc(e.comment) : ''}</div></div>`).join('')
+    : '<div class="empty">Пока нет событий</div>';
+  $('#historyModal').hidden = false;
+}
+
+/* =========================================================
+   ОБРАБОТЧИКИ
+   ========================================================= */
+$$('nav button').forEach(btn => btn.addEventListener('click', () => {
+  const tab = btn.dataset.tab;
+  $$('nav button').forEach(b => b.classList.toggle('active', b === btn));
+  $('#plantsSection').hidden = tab !== 'plants';
+  $('#careSection').hidden = tab !== 'care';
+}));
+$('#search').addEventListener('input', renderPlants);
+$('#filterPlant').addEventListener('change', renderEvents);
+$('#filterType').addEventListener('change', renderEvents);
+
+// Фильтр по статусу полива (Жёлтые / Красные)
+document.querySelector('.water-filter-group')?.addEventListener('click', e => {
+  const btn = e.target.closest('[data-water]');
+  if (!btn) return;
+  waterFilter = btn.dataset.water;
+  document.querySelectorAll('[data-water]').forEach(b => b.classList.toggle('active', b.dataset.water === waterFilter));
+  renderPlants();
+});
+
+window.addEventListener('scroll', () => {
+  if (quickPending) resetQuickPending();
+}, { passive: true });
+
+$('#plantsGrid').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action]'); if (!btn) return;
+  const { action, id, type } = btn.dataset;
+  if (action === 'info') openInfoModal(Number(id));
+  else if (action === 'edit') openPlantModal(Number(id));
+  else if (action === 'copy') {
+    const p = state.plants.find(x => x.id === Number(id));
+    if (p) openPlantModal(null, p);
+  }
+  else if (action === 'delete') {
+    const p = state.plants.find(x => x.id === Number(id)); if (!p) return;
+    if (!confirm(`Удалить «${p.name}» и все его события?`)) return;
+    btn.disabled = true;
+    await removePlant(Number(id));
+  }
+  else if (action === 'history') openHistoryModal(Number(id));
+  else if (action === 'quick') {
+    if (QUICK_CONFIRM_ON_TOUCH && isTouchDevice()) {
+      const confirmed = handleQuickTap(btn);
+      if (!confirmed) return;
+    }
+    btn.disabled = true;
+    await createEvent({ plantId: Number(id), date: todayISO(), type, comment: '' });
+    btn.disabled = false;
+  }
+});
+$('#eventsBody').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-action="deleteEvent"]'); if (!btn) return;
+  if (!confirm('Удалить событие?')) return;
+  btn.disabled = true;
+  await removeEvent(Number(btn.dataset.id));
+});
+$('#addPlantBtn').addEventListener('click', () => openPlantModal());
+$('#addEventBtn').addEventListener('click', () => {
+  if (!state.plants.length) { alert('Сначала добавьте хотя бы одно растение.'); return; }
+  openEventModal();
+});
+
+$$('[data-close]').forEach(b => b.addEventListener('click', () => { b.closest('.modal').hidden = true; }));
+$$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.hidden = true; }));
+
+/* =========================================================
+   СОХРАНЕНИЕ РАСТЕНИЯ С ФОТО
+   ========================================================= */
+$('#plantForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const editingId = String(data.id || '').trim();
+  delete data.id;
+  delete data.photo;
+
+  const submitBtn = $('#plantSubmitBtn');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Сохранение...';
+
+  try {
+    let finalPhotoUrl = photoState.current;
+    let currentWasPrefilled = false;
+
+    if (!editingId && photoState.current && !photoState.newFile) {
+      currentWasPrefilled = true;
+    }
+
+    if (photoState.remove && !photoState.newFile) finalPhotoUrl = null;
+
+    if (photoState.newFile) {
+      submitBtn.textContent = 'Загрузка фото...';
+      try {
+        const newUrl = await uploadPhoto(photoState.newFile);
+        finalPhotoUrl = newUrl;
+        if (editingId && photoState.current && photoState.current !== newUrl) {
+          deletePhotoByUrl(photoState.current);
+        }
+      } catch (err) {
+        console.error('uploadPhoto error:', err);
+        alert('Не удалось загрузить фото: ' + (err.message || err));
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
+        return;
+      }
+      submitBtn.textContent = 'Сохранение...';
+    } else if (currentWasPrefilled) {
+      submitBtn.textContent = 'Копирование фото...';
+      try {
+        const dupUrl = await duplicatePhotoByUrl(photoState.current);
+        finalPhotoUrl = dupUrl;
+      } catch (err) {
+        console.warn('duplicatePhoto error:', err);
+        finalPhotoUrl = photoState.current;
+      }
+      submitBtn.textContent = 'Сохранение...';
+    }
+
+    let ok = false;
+    if (editingId) ok = await updatePlant(Number(editingId), data, finalPhotoUrl);
+    else ok = await createPlant(data, finalPhotoUrl);
+
+    if (ok) {
+      $('#plantModal').hidden = true;
+      resetPhotoState();
+    }
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalLabel;
+  }
+});
+
+$('#eventForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const data = Object.fromEntries(new FormData(form).entries());
+  const editingId = String(data.id || '').trim();
+  delete data.id;
+  if (!data.plantId) { alert('Выберите растение.'); return; }
+  const submitBtn = $('#eventSubmitBtn');
+  submitBtn.disabled = true;
+  let ok = false;
+  if (editingId) ok = await updateEvent(Number(editingId), data);
+  else ok = await createEvent(data);
+  submitBtn.disabled = false;
+  if (ok) $('#eventModal').hidden = true;
+});
+
+/* =========================================================
+   НАСТРОЙКИ SUPABASE
+   ========================================================= */
+$('#settingsBtn').addEventListener('click', () => {
+  $('#settingsForm').elements.url.value = cfg.url || '';
+  $('#settingsForm').elements.key.value = cfg.key || '';
+  $('#testResult').innerHTML = '';
+  $('#settingsModal').hidden = false;
+});
+$('#settingsForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  cfg.url = e.target.elements.url.value.trim();
+  cfg.key = e.target.elements.key.value.trim();
+  saveCfg();
+  sb = (cfg.url && cfg.key) ? window.supabase.createClient(cfg.url, cfg.key) : null;
+  $('#settingsModal').hidden = true;
+  if (isConfigured()) await loadFromSupabase();
+  else { setSyncStatus(''); render(); }
+});
+$('#testConnBtn').addEventListener('click', async () => {
+  const url = $('#settingsForm').elements.url.value.trim();
+  const key = $('#settingsForm').elements.key.value.trim();
+  const box = $('#testResult');
+  if (!url || !key) { box.innerHTML = '<div class="status-msg err">Заполните URL и ключ</div>'; return; }
+  box.innerHTML = '<div class="status-msg info">Проверка...</div>';
+  try {
+    const test = window.supabase.createClient(url, key);
+    const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      test.from('plants').select('id', { count: 'exact', head: true }),
+      test.from('care_events').select('id', { count: 'exact', head: true })
+    ]);
+    if (e1) throw e1;
+    if (e2) throw e2;
+    box.innerHTML = '<div class="status-msg ok">✓ Подключено. Таблицы <code>plants</code> и <code>care_events</code> доступны.</div>';
+  } catch (err) {
+    box.innerHTML = `<div class="status-msg err">Ошибка: ${esc(err.message || String(err))}</div>`;
+  }
+});
+$('#syncBtn').addEventListener('click', async () => {
+  if (!isConfigured()) { alert('Сначала настройте Supabase в ⚙'); return; }
+  await loadFromSupabase();
+});
+
+/* =========================================================
+   СТАРТ
+   ========================================================= */
+loadCfg();
+loadCache();
+render();
+if (isConfigured()) loadFromSupabase();
+</script>
+</body>
+</html>

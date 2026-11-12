@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/*credentials*)",
+      "Read(//**/*secret*)",
+      "Read(//**/*.pem)",
+      "Read(//**/*.key)",
+      "Read(//**/*.p12)",
+      "Read(//**/*.pfx)",
+      "Read(//**/id_rsa*)",
+      "Read(//**/.netrc)",
+      "Read(//**/.npmrc)",
+      "Read(//**/.git-credentials)",
+      "Read(//**/.ssh/**)",
+      "Read(//**/.aws/**)",
+      "Edit(//**/.env)",
+      "Edit(//**/.env.*)",
+      "Edit(//**/*credentials*)",
+      "Edit(//**/.ssh/**)",
+      "Edit(//**/.aws/**)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git -C * push)",
+      "Bash(git -C * push *)",
+      "Bash(gh repo create *)",
+      "Bash(vercel *)",
+      "Bash(npx vercel *)",
+      "Bash(npx * vercel *)",
+      "Bash(netlify deploy *)",
+      "Bash(npx netlify* deploy *)",
+      "Bash(npx * netlify* deploy *)",
+      "Bash(railway up *)",
+      "Bash(wrangler *deploy*)",
+      "Bash(npx * wrangler *)",
+      "Bash(firebase deploy *)",
+      "Bash(npm publish *)",
+      "Bash(*cloudflared tunnel *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$CLAUDE_PROJECT_DIR/checks/plan-gate.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

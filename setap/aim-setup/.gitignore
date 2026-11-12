@@ -1,0 +1,30 @@
+.DS_Store
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+
+# живые артефакты работы – не часть стартера
+context/
+project
+.claude/settings.local.json
+.codex/config.toml
+PLAN.md
+PLAN-REVIEW.md
+SUBMIT.md
+worktrees/
+# в папках скиллов живут только скиллы набора; установленные копии – артефакты
+.claude/skills/*
+!.claude/skills/start/
+!.claude/skills/build/
+!.claude/skills/submit/
+.agents/skills/*
+!.agents/skills/start/
+!.agents/skills/build/
+!.agents/skills/submit/
+.opencode/skill/*
+!.opencode/skill/start/
+!.opencode/skill/build/
+!.opencode/skill/submit/
+.claude/agents/
