@@ -132,6 +132,10 @@
   .status-msg.info{background:#E8F0FE;color:#1A56B8;border:1px solid #C5D9F2}
   .setup-banner{background:var(--warm-bg);border:1px solid var(--warm);border-radius:var(--radius);padding:16px 20px;margin-bottom:24px;font-size:14px;line-height:1.6}
   .setup-banner button{margin-top:10px}
+  .th-group{background:var(--green-100);border-radius:var(--radius-sm);padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+  .th-title{font-size:13px;font-weight:600;color:var(--green-800)}
+  .th-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary)}
+  .th-row input{width:72px;padding:6px 8px}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   @keyframes slideUp{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
   @keyframes cardIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -276,7 +280,7 @@
 <!-- Настройки Supabase -->
 <div class="modal" id="settingsModal" hidden>
   <div class="modal-content">
-    <h2>Настройки подключения к Supabase</h2>
+    <h2>Настройки</h2>
     <form id="settingsForm">
       <div class="form-body">
         <label>Project URL
@@ -293,6 +297,19 @@
         </div>
         <button type="button" id="testConnBtn" style="align-self:flex-start; padding:6px 12px; border:1px solid #ccc; border-radius:6px; background:white; cursor:pointer;">Проверить подключение</button>
         <div id="testResult"></div>
+        <div class="hint" style="margin-top:8px">
+          <strong>Пороги полива</strong> — через сколько дней после полива растение попадёт в группу 🟡 «Жёлтые» или 🔴 «Красные».
+        </div>
+        <div class="th-group">
+          <div class="th-title">Влаголюбивые (частый полив)</div>
+          <div class="th-row">🟡 Жёлтые через <input type="number" name="wl_yellow" min="0" max="365" step="1"> дн.</div>
+          <div class="th-row">🔴 Красные через <input type="number" name="wl_red" min="0" max="365" step="1"> дн.</div>
+        </div>
+        <div class="th-group">
+          <div class="th-title">Засухоустойчивые (редкий полив)</div>
+          <div class="th-row">🟡 Жёлтые через <input type="number" name="dr_yellow" min="0" max="365" step="1"> дн.</div>
+          <div class="th-row">🔴 Красные через <input type="number" name="dr_red" min="0" max="365" step="1"> дн.</div>
+        </div>
       </div>
       <div class="modal-buttons">
         <button type="button" data-close>Отмена</button>
@@ -308,14 +325,17 @@
    ========================================================= */
 const CACHE_KEY = 'plantTracker_cache_v2';
 const CFG_KEY   = 'plantTracker_supabase_cfg';
+const WATER_CFG_KEY = 'plantTracker_water_thresholds';
 const STORAGE_BUCKET = 'plant-photos';
 const EVENT_TYPES = ['Полив','Удобрение','Пересадка','Обработка от вредителей','Опрыскивание','Обрезка','Другое'];
 
-// Пороги полива (в днях) по группе растения
-const WATER_THRESHOLDS = {
+// Пороги полива (в днях) по группе растения — значения по умолчанию.
+// Меняются в Настройках (⚙) и хранятся в localStorage.
+const DEFAULT_WATER_THRESHOLDS = {
   'влаголюбивые':     { yellow: 5,  red: 8  },
   'засухоустойчивые': { yellow: 8,  red: 11 }
 };
+const WATER_THRESHOLDS = JSON.parse(JSON.stringify(DEFAULT_WATER_THRESHOLDS));
 
 const ICONS = {
   water: '<svg class="icon"><use href="#i-water"/></svg>',
@@ -355,6 +375,28 @@ function loadCfg() {
   }
 }
 function saveCfg() { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+function clampDays(v, fallback) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+function loadWaterThresholds() {
+  try {
+    const s = JSON.parse(localStorage.getItem(WATER_CFG_KEY));
+    if (s && typeof s === 'object') {
+      for (const cls of Object.keys(DEFAULT_WATER_THRESHOLDS)) {
+        const d = DEFAULT_WATER_THRESHOLDS[cls];
+        const saved = s[cls] || {};
+        WATER_THRESHOLDS[cls] = {
+          yellow: clampDays(saved.yellow, d.yellow),
+          red:    clampDays(saved.red,    d.red)
+        };
+      }
+    }
+  } catch {}
+}
+function saveWaterThresholds() {
+  localStorage.setItem(WATER_CFG_KEY, JSON.stringify(WATER_THRESHOLDS));
+}
 function loadCache() {
   try { const raw = localStorage.getItem(CACHE_KEY); if (raw) state = JSON.parse(raw); } catch {}
 }
@@ -1061,8 +1103,13 @@ $('#eventForm').addEventListener('submit', async e => {
    НАСТРОЙКИ SUPABASE
    ========================================================= */
 $('#settingsBtn').addEventListener('click', () => {
-  $('#settingsForm').elements.url.value = cfg.url || '';
-  $('#settingsForm').elements.key.value = cfg.key || '';
+  const f = $('#settingsForm').elements;
+  f.url.value = cfg.url || '';
+  f.key.value = cfg.key || '';
+  f.wl_yellow.value = WATER_THRESHOLDS['влаголюбивые'].yellow;
+  f.wl_red.value    = WATER_THRESHOLDS['влаголюбивые'].red;
+  f.dr_yellow.value = WATER_THRESHOLDS['засухоустойчивые'].yellow;
+  f.dr_red.value    = WATER_THRESHOLDS['засухоустойчивые'].red;
   $('#testResult').innerHTML = '';
   $('#settingsModal').hidden = false;
 });
@@ -1072,6 +1119,18 @@ $('#settingsForm').addEventListener('submit', async e => {
   cfg.key = e.target.elements.key.value.trim();
   saveCfg();
   sb = (cfg.url && cfg.key) ? window.supabase.createClient(cfg.url, cfg.key) : null;
+
+  const f = e.target.elements;
+  WATER_THRESHOLDS['влаголюбивые'] = {
+    yellow: clampDays(f.wl_yellow.value, DEFAULT_WATER_THRESHOLDS['влаголюбивые'].yellow),
+    red:    clampDays(f.wl_red.value,    DEFAULT_WATER_THRESHOLDS['влаголюбивые'].red)
+  };
+  WATER_THRESHOLDS['засухоустойчивые'] = {
+    yellow: clampDays(f.dr_yellow.value, DEFAULT_WATER_THRESHOLDS['засухоустойчивые'].yellow),
+    red:    clampDays(f.dr_red.value,    DEFAULT_WATER_THRESHOLDS['засухоустойчивые'].red)
+  };
+  saveWaterThresholds();
+
   $('#settingsModal').hidden = true;
   if (isConfigured()) await loadFromSupabase();
   else { setSyncStatus(''); render(); }
@@ -1105,6 +1164,7 @@ $('#syncBtn').addEventListener('click', async () => {
    ========================================================= */
 loadCfg();
 loadCache();
+loadWaterThresholds();
 render();
 if (isConfigured()) loadFromSupabase();
 </script>
